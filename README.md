@@ -65,19 +65,21 @@ graph TD
 
 ---
 
-## 📂 Zero-Copy Server File Layout (User Accessible)
+## 📂 Zero-Copy User-Managed Gamemode Directory
 
-Server files are located in Android's shared external storage directory (accessible without root via **ZArchiver**, **MT Manager**, or USB PC connection):
-`/storage/emulated/0/Android/data/com.pocketsamp.server/files/server/`
+PocketSAMP reads your gamemode files directly from Android public shared storage without root or copying:
+- **Default Directory:** `/storage/emulated/0/PocketSAMP/`
+- **Custom Directory:** You can select ANY folder on your device containing your SA-MP server files via the in-app **"Pilih Folder"** picker on the Dashboard tab!
 
-- **`gamemodes/`**: Place compiled `.amx` gamemodes here (e.g. `bare.amx` or your custom gamemode).
+### Gamemode Structure (User Managed):
+- **`server.cfg`**: Your server configuration file (loaded and executed directly by the server).
+- **`gamemodes/`**: Place compiled `.amx` gamemodes here.
 - **`filterscripts/`**: Place filterscript `.amx` files here.
 - **`plugins/`**: Place x86 32-bit Linux plugins (`.so`) here.
-- **`scriptfiles/`**: Place accounts, player data, property configs, or sqlite databases here.
-- **`server.cfg`**: The core configuration file (can also be edited via the in-app Config tab).
+- **`scriptfiles/`**: Place accounts, player data, configs, or sqlite databases here.
 - **`server_log.txt`**: Live server output log.
 
-No file duplication, no slow copy processes, and zero memory overhead. Files are read and written directly in real time by the server.
+No template files are forced into your directory. The server directly runs your gamemode and configuration in real time with 0.00s loading overhead.
 
 ---
 

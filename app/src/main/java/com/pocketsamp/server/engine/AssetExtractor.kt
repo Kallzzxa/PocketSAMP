@@ -12,17 +12,18 @@ import java.io.FileOutputStream
 import java.io.InputStream
 import java.util.zip.GZIPInputStream
 
+import com.pocketsamp.server.config.ServerDirectoryManager
+
 class AssetExtractor(private val context: Context) {
 
     companion object {
         private const val TAG = "AssetExtractor"
         private const val PREF_NAME = "pocketsamp_assets"
         private const val KEY_INSTALLED_VERSION = "assets_installed_version"
-        private const val CURRENT_VERSION = 5
+        private const val CURRENT_VERSION = 6
 
         fun getServerDirectory(context: Context): File {
-            val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
-            return File(baseDir, "server")
+            return ServerDirectoryManager.getServerDirectory(context)
         }
     }
 
@@ -31,51 +32,31 @@ class AssetExtractor(private val context: Context) {
         val installedVersion = prefs.getInt(KEY_INSTALLED_VERSION, 0)
         val rootfsDir = File(context.filesDir, "rootfs_i386")
         val binDir = File(context.filesDir, "bin")
-        val serverDir = getServerDirectory(context)
         val mariadbDir = File(context.filesDir, "mariadb")
 
-        installedVersion == CURRENT_VERSION && rootfsDir.exists() && binDir.exists() && serverDir.exists() && mariadbDir.exists()
+        installedVersion == CURRENT_VERSION && rootfsDir.exists() && binDir.exists() && mariadbDir.exists()
     }
 
     suspend fun extractAll(onProgress: (String) -> Unit) = withContext(Dispatchers.IO) {
         val filesDir = context.filesDir
 
-        // 1. Extract rootfs_i386
+        // 1. Extract rootfs_i386 (x86 C-Runtime sysroot for QEMU)
         onProgress("Extracting x86 C-Runtime...")
         val rootfsDir = File(filesDir, "rootfs_i386")
         if (!rootfsDir.exists()) rootfsDir.mkdirs()
         extractArchiveAsset("rootfs_i386", rootfsDir)
 
-        // 2. Setup user server directory & extract binary
-        onProgress("Setting up clean SA-MP server environment...")
-        val serverDir = getServerDirectory(context).apply { mkdirs() }
-        File(serverDir, "gamemodes").mkdirs()
-        File(serverDir, "filterscripts").mkdirs()
-        File(serverDir, "scriptfiles").mkdirs()
-        File(serverDir, "plugins").mkdirs()
-
-        // Extract engine binaries to internal storage (context.filesDir/bin)
+        // 2. Extract engine binaries to internal protected storage (context.filesDir/bin)
+        onProgress("Deploying SA-MP server binary...")
         val binDir = File(filesDir, "bin").apply { mkdirs() }
         extractArchiveAsset("samp_base", binDir)
         File(binDir, "samp03svr").setExecutable(true, false)
         File(binDir, "announce").setExecutable(true, false)
 
-        // Copy clean server.cfg to user folder if not present
-        val userCfg = File(serverDir, "server.cfg")
-        if (!userCfg.exists()) {
-            val templateCfg = File(binDir, "server.cfg")
-            if (templateCfg.exists()) {
-                templateCfg.copyTo(userCfg, overwrite = false)
-            }
-        }
-
-        // Copy minimal starter bare.amx if user gamemodes is empty
-        val starterAmx = File(serverDir, "gamemodes/bare.amx")
-        if (!starterAmx.exists()) {
-            val templateAmx = File(binDir, "gamemodes/bare.amx")
-            if (templateAmx.exists()) {
-                templateAmx.copyTo(starterAmx, overwrite = false)
-            }
+        // Ensure default public server folder exists for user convenience (/storage/emulated/0/PocketSAMP)
+        val defaultDir = ServerDirectoryManager.getDefaultServerDirectory()
+        if (!defaultDir.exists()) {
+            defaultDir.mkdirs()
         }
 
         // 3. Extract mariadb_arm64

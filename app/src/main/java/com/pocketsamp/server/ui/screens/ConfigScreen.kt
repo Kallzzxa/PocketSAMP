@@ -18,16 +18,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pocketsamp.server.config.ServerConfig
-import com.pocketsamp.server.engine.AssetExtractor
+import com.pocketsamp.server.config.ServerDirectoryManager
 import com.pocketsamp.server.ui.theme.*
 import java.io.File
 
 @Composable
 fun ConfigScreen() {
     val context = LocalContext.current
-    val configFile = remember { File(AssetExtractor.getServerDirectory(context), "server.cfg") }
+    val serverDir = remember { ServerDirectoryManager.getServerDirectory(context) }
+    val configFile = remember(serverDir) { File(serverDir, "server.cfg") }
 
-    var config by remember { mutableStateOf(ServerConfig.loadFromFile(configFile)) }
+    var config by remember(configFile) { mutableStateOf(ServerConfig.loadFromFile(configFile)) }
 
     var hostname by remember { mutableStateOf(config.hostname) }
     var port by remember { mutableStateOf(config.port.toString()) }

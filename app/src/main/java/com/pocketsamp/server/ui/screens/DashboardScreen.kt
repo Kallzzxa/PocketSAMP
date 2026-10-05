@@ -9,18 +9,21 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,9 +33,13 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.pocketsamp.server.engine.AssetExtractor
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.pocketsamp.server.config.ServerDirectoryManager
 import com.pocketsamp.server.service.ServerStatus
 import com.pocketsamp.server.ui.theme.*
+import java.io.File
 
 @Composable
 fun DashboardScreen(
@@ -42,7 +49,37 @@ fun DashboardScreen(
     onStartServer: () -> Unit,
     onStopServer: () -> Unit
 ) {
-    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var currentServerDir by remember { mutableStateOf(ServerDirectoryManager.getServerDirectory(context)) }
+    var hasStoragePermission by remember { mutableStateOf(ServerDirectoryManager.hasStoragePermission(context)) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                hasStoragePermission = ServerDirectoryManager.hasStoragePermission(context)
+                currentServerDir = ServerDirectoryManager.getServerDirectory(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    val folderPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) {
+            val dir = ServerDirectoryManager.parseTreeUriToFile(uri)
+            if (dir != null && dir.exists() && dir.isDirectory) {
+                ServerDirectoryManager.setServerDirectory(context, dir)
+                currentServerDir = dir
+                Toast.makeText(context, "Folder gamemode diubah ke: ${dir.name}", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "Gagal mendapatkan path folder yang dipilih.", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     val scrollState = rememberScrollState()
 
@@ -242,9 +279,64 @@ fun DashboardScreen(
             )
         }
 
-        // Server Directory Card (Zero-Copy)
-        val serverDir = remember { AssetExtractor.getServerDirectory(context) }
-        val serverPath = serverDir.absolutePath
+        // Storage Permission Alert (if needed on Android 11+)
+        if (!hasStoragePermission) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = AccentOrange.copy(alpha = 0.12f)),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, AccentOrange)
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Security,
+                            contentDescription = null,
+                            tint = AccentOrange,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Izin Akses File Diperlukan",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentOrange
+                        )
+                    }
+
+                    Text(
+                        text = "Android memerlukan izin 'Akses Semua File' agar server dapat membaca folder gamemode Anda secara langsung.",
+                        fontSize = 11.sp,
+                        color = TextPrimary
+                    )
+
+                    Button(
+                        onClick = {
+                            try {
+                                context.startActivity(ServerDirectoryManager.getManageStorageIntent(context))
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Buka Pengaturan -> Aplikasi -> PocketSAMP -> Izin", Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentOrange, contentColor = Color.Black),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(36.dp)
+                    ) {
+                        Text(text = "Beri Izin Akses File", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+
+        // Gamemode Directory Card (Zero-Copy)
+        val hasCfg = remember(currentServerDir) { File(currentServerDir, "server.cfg").exists() }
 
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -253,7 +345,7 @@ fun DashboardScreen(
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -266,26 +358,52 @@ fun DashboardScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.FolderOpen,
-                            contentDescription = "Server Folder",
+                            contentDescription = "Folder Gamemode",
                             tint = AccentCyan,
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = "Server Directory (Zero-Copy)",
+                            text = "Folder Gamemode SA-MP",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = TextSecondary
                         )
                     }
 
+                    val badgeColor = if (hasCfg) StatusGreen else AccentOrange
+                    val badgeText = if (hasCfg) "server.cfg OK" else "server.cfg ?"
+                    Text(
+                        text = badgeText,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = badgeColor,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(badgeColor.copy(alpha = 0.15f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = currentServerDir.absolutePath,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = TextPrimary,
+                        modifier = Modifier.weight(1f)
+                    )
                     IconButton(
                         onClick = {
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            val clip = ClipData.newPlainText("Server Path", serverPath)
+                            val clip = ClipData.newPlainText("Server Path", currentServerDir.absolutePath)
                             clipboard.setPrimaryClip(clip)
                             Toast.makeText(context, "Path disalin ke clipboard!", Toast.LENGTH_SHORT).show()
                         },
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(28.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.ContentCopy,
@@ -296,17 +414,44 @@ fun DashboardScreen(
                     }
                 }
 
-                Text(
-                    text = serverPath,
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace,
-                    color = TextPrimary
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = { folderPickerLauncher.launch(null) },
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentCyan, contentColor = BgDark),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(text = "Pilih Folder", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            currentServerDir = ServerDirectoryManager.resetToDefaultDirectory(context)
+                            Toast.makeText(context, "Direset ke default PocketSAMP", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.height(38.dp)
+                    ) {
+                        Text(text = "Reset Default", fontSize = 12.sp)
+                    }
+                }
 
                 Text(
-                    text = "Akses via ZArchiver / MT Manager. Taruh .amx di /gamemodes, filterscripts di /filterscripts, data di /scriptfiles.",
+                    text = if (hasCfg) {
+                        "Server akan membaca server.cfg & gamemode Anda langsung dari folder ini."
+                    } else {
+                        "server.cfg belum ditemukan di folder ini. Letakkan gamemode Anda di sini atau simpan setting di tab Config."
+                    },
                     fontSize = 11.sp,
-                    color = TextMuted
+                    color = if (hasCfg) TextMuted else AccentOrange
                 )
             }
         }

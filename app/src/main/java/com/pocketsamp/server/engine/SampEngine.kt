@@ -32,7 +32,7 @@ class SampEngine(private val context: Context) {
 
         val qemuBinary = File(nativeLibDir, "libqemu-i386.so")
         val rootfsDir = File(filesDir, "rootfs_i386")
-        val sampDir = AssetExtractor.getServerDirectory(context)
+        val sampDir = com.pocketsamp.server.config.ServerDirectoryManager.getServerDirectory(context)
         val serverBinary = File(filesDir, "bin/samp03svr").takeIf { it.exists() }
             ?: File(filesDir, "samp_server/samp03svr").takeIf { it.exists() }
             ?: File(sampDir, "samp03svr")
@@ -48,6 +48,15 @@ class SampEngine(private val context: Context) {
         if (!serverBinary.exists()) {
             scope.launch {
                 _serverLogs.emit("[SA-MP Error] samp03svr binary not found in ${serverBinary.parent}")
+            }
+            return
+        }
+
+        val cfgFile = File(sampDir, "server.cfg")
+        if (!cfgFile.exists()) {
+            scope.launch {
+                _serverLogs.emit("[SA-MP Error] server.cfg tidak ditemukan di: ${sampDir.absolutePath}")
+                _serverLogs.emit("[SA-MP Info] Pastikan folder berisi gamemode SA-MP yang valid atau atur konfigurasi di tab Config.")
             }
             return
         }

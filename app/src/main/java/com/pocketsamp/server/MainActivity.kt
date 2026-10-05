@@ -130,6 +130,19 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startServerService() {
+        if (!com.pocketsamp.server.config.ServerDirectoryManager.hasStoragePermission(this)) {
+            android.widget.Toast.makeText(
+                this,
+                "Beri izin Akses Semua File terlebih dahulu agar server dapat membaca gamemode Anda",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+            try {
+                startActivity(com.pocketsamp.server.config.ServerDirectoryManager.getManageStorageIntent(this))
+            } catch (ignored: Exception) {
+            }
+            return
+        }
+
         val intent = Intent(this, ServerForegroundService::class.java).apply {
             action = ServerForegroundService.ACTION_START
         }
