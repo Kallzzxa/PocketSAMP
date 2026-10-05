@@ -49,6 +49,7 @@ fun DashboardScreen(
     onStartServer: () -> Unit,
     onStopServer: () -> Unit
 ) {
+    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var currentServerDir by remember { mutableStateOf(ServerDirectoryManager.getServerDirectory(context)) }
     var hasStoragePermission by remember { mutableStateOf(ServerDirectoryManager.hasStoragePermission(context)) }
