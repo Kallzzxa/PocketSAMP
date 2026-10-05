@@ -30,37 +30,35 @@ class SampEngine(private val context: Context) {
         val nativeLibDir = context.applicationInfo.nativeLibraryDir
         val filesDir = context.filesDir
 
-        val prootBinary = File(nativeLibDir, "libproot.so")
         val qemuBinary = File(nativeLibDir, "libqemu-i386.so")
         val rootfsDir = File(filesDir, "rootfs_i386")
         val sampDir = File(filesDir, "samp_server")
+        val serverBinary = File(sampDir, "samp03svr")
+        val prootTmp = File(context.cacheDir, "proot_tmp").apply { mkdirs() }
 
-        if (!prootBinary.exists() || !qemuBinary.exists()) {
+        if (!qemuBinary.exists()) {
             scope.launch {
-                _serverLogs.emit("[SA-MP Error] Native engines (PRoot/QEMU) not found in $nativeLibDir")
+                _serverLogs.emit("[SA-MP Error] QEMU binary not found in $nativeLibDir")
             }
             return
         }
 
-        // PRoot execution parameters
-        // -r: rootfs directory
-        // -q: QEMU user-mode binary for x86-32 translation
-        // -b: bind mounts (/dev, /proc, and the server directory as /server)
-        // -w: working directory inside the container
+        serverBinary.setExecutable(true, false)
+
+        // Execute SA-MP server via QEMU user-mode translation directly (-L provides the x86 sysroot).
+        // This eliminates PRoot ptrace overhead, glue rootfs bugs, and /tmp permission failures.
         val command = listOf(
-            prootBinary.absolutePath,
-            "-r", rootfsDir.absolutePath,
-            "-q", qemuBinary.absolutePath,
-            "-b", "/dev",
-            "-b", "/proc",
-            "-b", "${sampDir.absolutePath}:/server",
-            "-w", "/server",
-            "/server/samp03svr"
+            qemuBinary.absolutePath,
+            "-L", rootfsDir.absolutePath,
+            "-E", "LD_LIBRARY_PATH=/usr/lib/i386-linux-gnu:/lib/i386-linux-gnu:/usr/lib:/lib",
+            serverBinary.absolutePath
         )
 
         val env = mapOf(
-            "LD_LIBRARY_PATH" to "/usr/lib/i386-linux-gnu:/lib/i386-linux-gnu:/usr/lib:/lib",
-            "HOME" to "/server",
+            "PROOT_TMP_DIR" to prootTmp.absolutePath,
+            "TMPDIR" to prootTmp.absolutePath,
+            "LD_LIBRARY_PATH" to "${rootfsDir.absolutePath}/usr/lib/i386-linux-gnu:${rootfsDir.absolutePath}/lib/i386-linux-gnu",
+            "HOME" to sampDir.absolutePath,
             "USER" to "root"
         )
 
@@ -78,14 +76,13 @@ class SampEngine(private val context: Context) {
             }
         }
 
-        // Also tail server_log.txt for detailed SA-MP Pawn logs
+        // Tail server_log.txt for detailed SA-MP Pawn logs
         startLogTailer(File(sampDir, "server_log.txt"), scope)
     }
 
     private fun startLogTailer(logFile: File, scope: CoroutineScope) {
         logPollingJob?.cancel()
         logPollingJob = scope.launch(Dispatchers.IO) {
-            // Wait for file creation
             var attempts = 0
             while (!logFile.exists() && attempts < 20 && isActive) {
                 delay(250)
@@ -109,7 +106,6 @@ class SampEngine(private val context: Context) {
                             filePointer = raf.filePointer
                         }
                     } else if (fileLength < filePointer) {
-                        // File was truncated / recreated
                         filePointer = 0L
                     }
                 } catch (e: Exception) {

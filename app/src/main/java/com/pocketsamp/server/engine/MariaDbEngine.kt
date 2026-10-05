@@ -25,100 +25,72 @@ class MariaDbEngine(private val context: Context) {
     suspend fun initializeIfNeeded(scope: CoroutineScope): Boolean = withContext(Dispatchers.IO) {
         val mariadbDir = File(context.filesDir, "mariadb")
         val dataDir = File(mariadbDir, "data")
-        val systemDb = File(dataDir, "mysql")
-
-        if (systemDb.exists()) {
-            return@withContext true
-        }
-
-        _dbLogs.emit("[MariaDB] Initializing new system database cluster...")
-        dataDir.mkdirs()
+        val mysqlDir = File(dataDir, "mysql")
         File(mariadbDir, "tmp").mkdirs()
 
-        val prootBinary = File(context.applicationInfo.nativeLibraryDir, "libproot.so")
-        val installDbBinary = File(mariadbDir, "bin/mariadb-install-db")
-        installDbBinary.setExecutable(true, false)
-
-        // Run through PRoot to bypass Android 10+ SELinux W^X (noexec on filesDir)
-        val cmd = if (prootBinary.exists()) {
-            listOf(
-                prootBinary.absolutePath,
-                "-b", "/dev",
-                "-b", "/proc",
-                "-b", "${mariadbDir.absolutePath}:/mariadb",
-                "-w", "/mariadb",
-                "/mariadb/bin/mariadb-install-db",
-                "--datadir=/mariadb/data",
-                "--basedir=/mariadb",
-                "--user=root"
-            )
-        } else {
-            listOf(
-                installDbBinary.absolutePath,
-                "--datadir=${dataDir.absolutePath}",
-                "--basedir=${mariadbDir.absolutePath}",
-                "--user=root"
-            )
+        if (!mysqlDir.exists()) {
+            _dbLogs.emit("[MariaDB] Preparing database directory structure...")
+            dataDir.mkdirs()
+            mysqlDir.mkdirs()
         }
 
-        val env = mapOf(
-            "LD_LIBRARY_PATH" to File(mariadbDir, "lib").absolutePath,
-            "TMPDIR" to File(mariadbDir, "tmp").absolutePath
-        )
-
-        try {
-            val process = ProcessBuilder(cmd)
-                .directory(mariadbDir)
-                .redirectErrorStream(true)
-            process.environment().putAll(env)
-
-            val proc = process.start()
-            val exitCode = proc.waitFor()
-            if (exitCode == 0) {
-                _dbLogs.emit("[MariaDB] Database system initialized successfully.")
-                true
-            } else {
-                _dbLogs.emit("[MariaDB Error] Initialization failed with exit code $exitCode")
-                false
-            }
-        } catch (e: Exception) {
-            _dbLogs.emit("[MariaDB Error] Exception during install-db: ${e.message}")
-            false
-        }
+        true
     }
 
     fun start(scope: CoroutineScope) {
         if (isRunning) return
 
+        val nativeLibDir = context.applicationInfo.nativeLibraryDir
         val mariadbDir = File(context.filesDir, "mariadb")
         val daemonBinary = File(mariadbDir, "bin/mariadbd")
         val cnfFile = File(mariadbDir, "my.cnf")
-        val prootBinary = File(context.applicationInfo.nativeLibraryDir, "libproot.so")
+        val dataDir = File(mariadbDir, "data").apply { mkdirs() }
+        val tmpDir = File(mariadbDir, "tmp").apply { mkdirs() }
+        val prootTmp = File(context.cacheDir, "proot_tmp").apply { mkdirs() }
+        val prootBinary = File(nativeLibDir, "libproot.so")
 
         daemonBinary.setExecutable(true, false)
 
-        // Route through PRoot to bypass SELinux noexec restriction on internal storage
+        val socketFile = File(tmpDir, "mysql.sock")
+        val pidFile = File(tmpDir, "mysql.pid")
+
+        // PRoot execution with mandatory PROOT_TMP_DIR and system mount bindings
         val command = if (prootBinary.exists()) {
             listOf(
                 prootBinary.absolutePath,
+                "-0",
                 "-b", "/dev",
                 "-b", "/proc",
+                "-b", "/system",
+                "-b", "/vendor",
                 "-b", "${mariadbDir.absolutePath}:/mariadb",
                 "-w", "/mariadb",
                 "/mariadb/bin/mariadbd",
-                "--defaults-file=/mariadb/my.cnf"
+                "--defaults-file=/mariadb/my.cnf",
+                "--datadir=/mariadb/data",
+                "--socket=/mariadb/tmp/mysql.sock",
+                "--pid-file=/mariadb/tmp/mysql.pid",
+                "--tmpdir=/mariadb/tmp",
+                "--skip-grant-tables"
             )
         } else {
             listOf(
                 daemonBinary.absolutePath,
-                "--defaults-file=${cnfFile.absolutePath}"
+                "--defaults-file=${cnfFile.absolutePath}",
+                "--datadir=${dataDir.absolutePath}",
+                "--socket=${socketFile.absolutePath}",
+                "--pid-file=${pidFile.absolutePath}",
+                "--tmpdir=${tmpDir.absolutePath}",
+                "--skip-grant-tables"
             )
         }
 
         val env = mapOf(
+            "PROOT_TMP_DIR" to prootTmp.absolutePath,
+            "TMPDIR" to tmpDir.absolutePath,
             "LD_LIBRARY_PATH" to File(mariadbDir, "lib").absolutePath,
-            "TMPDIR" to File(mariadbDir, "tmp").absolutePath,
-            "HOME" to mariadbDir.absolutePath
+            "HOME" to mariadbDir.absolutePath,
+            "USER" to "root"
         )
 
         processRunner.start(
