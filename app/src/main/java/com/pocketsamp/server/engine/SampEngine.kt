@@ -34,7 +34,7 @@ class SampEngine(private val context: Context) {
         val rootfsDir = File(filesDir, "rootfs_i386")
         val sampDir = File(filesDir, "samp_server")
         val serverBinary = File(sampDir, "samp03svr")
-        val prootTmp = File(context.cacheDir, "proot_tmp").apply { mkdirs() }
+        val tempDir = File(context.cacheDir, "samp_tmp").apply { mkdirs() }
 
         if (!qemuBinary.exists()) {
             scope.launch {
@@ -55,8 +55,7 @@ class SampEngine(private val context: Context) {
         )
 
         val env = mapOf(
-            "PROOT_TMP_DIR" to prootTmp.absolutePath,
-            "TMPDIR" to prootTmp.absolutePath,
+            "TMPDIR" to tempDir.absolutePath,
             "LD_LIBRARY_PATH" to "${rootfsDir.absolutePath}/usr/lib/i386-linux-gnu:${rootfsDir.absolutePath}/lib/i386-linux-gnu",
             "HOME" to sampDir.absolutePath,
             "USER" to "root"

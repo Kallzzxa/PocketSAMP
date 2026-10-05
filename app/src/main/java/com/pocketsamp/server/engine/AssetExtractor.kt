@@ -18,7 +18,7 @@ class AssetExtractor(private val context: Context) {
         private const val TAG = "AssetExtractor"
         private const val PREF_NAME = "pocketsamp_assets"
         private const val KEY_INSTALLED_VERSION = "assets_installed_version"
-        private const val CURRENT_VERSION = 2
+        private const val CURRENT_VERSION = 3
     }
 
     suspend fun isExtracted(): Boolean = withContext(Dispatchers.IO) {
@@ -56,9 +56,9 @@ class AssetExtractor(private val context: Context) {
         if (!mariadbDir.exists()) mariadbDir.mkdirs()
         extractArchiveAsset("mariadb_arm64", mariadbDir)
 
-        // Ensure mariadb binaries are executable
-        File(mariadbDir, "bin/mariadbd").setExecutable(true, false)
-        File(mariadbDir, "bin/mariadb-install-db").setExecutable(true, false)
+        // Ensure binaries have executable bit set if present
+        File(mariadbDir, "bin/mariadbd").let { if (it.exists()) it.setExecutable(true, false) }
+        File(mariadbDir, "bin/mariadb-install-db").let { if (it.exists()) it.setExecutable(true, false) }
 
         // 4. Copy my.cnf template
         onProgress("Configuring low-memory database...")
