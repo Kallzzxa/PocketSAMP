@@ -98,6 +98,42 @@ class ServerForegroundService : Service() {
         sampEngine = SampEngine(this)
         mariaDbEngine = MariaDbEngine(this)
 
+        // Handle process termination (e.g. Android Phantom Process Killer / OOM)
+        sampEngine.onExit = { exitCode ->
+            val prefs = getSharedPreferences("pocketsamp_prefs", Context.MODE_PRIVATE)
+            val shouldBeRunning = prefs.getBoolean("server_running_state", false)
+
+            if (exitCode == 137) {
+                appendLog("[Android Alert] Proses SA-MP dihentikan oleh Android Phantom Process Killer / OOM (Exit 137).")
+                appendLog("[Solusi 1] Gembok/Kunci aplikasi PocketSAMP di Recent Apps agar tidak di-freeze oleh sistem.")
+                appendLog("[Solusi 2] Aktifkan 'Disable child process restrictions' di Pengaturan Developer Options.")
+                appendLog("[Solusi 3] Di launcher SA-MP, hubungkan ke IP 127.0.0.1:7777 (Localhost).")
+                updateNotification("Server terhenti oleh Android (Exit 137)")
+            } else {
+                appendLog("[PocketSAMP] Proses server SA-MP keluar dengan kode: $exitCode")
+                updateNotification("SA-MP Server stopped (Code: $exitCode)")
+            }
+
+            if (shouldBeRunning) {
+                appendLog("[PocketSAMP] Mencoba memulihkan server SA-MP secara otomatis dalam 2 detik...")
+                serviceScope.launch {
+                    delay(2000)
+                    if (prefs.getBoolean("server_running_state", false) && !sampEngine.isRunning) {
+                        try {
+                            sampEngine.start(serviceScope)
+                            updateNotification("SA-MP Server active on ${_lanIp.value}:7777")
+                            appendLog("[PocketSAMP] Server SA-MP berhasil dipulihkan secara otomatis!")
+                        } catch (e: Exception) {
+                            appendLog("[PocketSAMP Error] Gagal memulihkan server: ${e.message}")
+                            _serverStatus.value = ServerStatus.STOPPED
+                        }
+                    }
+                }
+            } else {
+                _serverStatus.value = ServerStatus.STOPPED
+            }
+        }
+
         // Stream logs from engines
         serviceScope.launch {
             sampEngine.serverLogs.collect { appendLog(it) }
@@ -264,13 +300,8 @@ class ServerForegroundService : Service() {
 
         val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
 
-        // 1. Wi-Fi Lock with Low Latency on Android 10+
-        val wifiMode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            WifiManager.WIFI_MODE_FULL_LOW_LATENCY
-        } else {
-            WifiManager.WIFI_MODE_FULL_HIGH_PERF
-        }
-        wifiLock = wifiManager.createWifiLock(wifiMode, "PocketSAMP::WifiLock").apply {
+        // 1. Wi-Fi Lock with High Performance (keeps Wi-Fi active in background; LOW_LATENCY is deactivated by Android when app leaves foreground)
+        wifiLock = wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "PocketSAMP::WifiLock").apply {
             setReferenceCounted(false)
             acquire()
         }

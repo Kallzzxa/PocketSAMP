@@ -165,7 +165,7 @@ fun DashboardScreen(
             }
         }
 
-        // Network Card (IP & Port)
+        // Server Address Card (Dual Localhost & LAN Wi-Fi)
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = SurfaceCard),
@@ -175,60 +175,130 @@ fun DashboardScreen(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                // Section 1: Localhost (Main di HP Ini - Disarankan)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(AccentCyan.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Wifi,
-                            contentDescription = "Wi-Fi IP",
-                            tint = AccentCyan,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = "Server Address",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextSecondary
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Bolt,
+                                contentDescription = null,
+                                tint = AccentCyan,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Main di HP Ini (Satu HP)",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = AccentCyan
+                            )
+                        }
+
+                        IconButton(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip = ClipData.newPlainText("SA-MP Server IP", "127.0.0.1:7777")
+                                clipboard.setPrimaryClip(clip)
+                                Toast.makeText(context, "Disalin: 127.0.0.1:7777", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = "Copy Localhost IP",
+                                tint = AccentCyan,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
 
-                    IconButton(
-                        onClick = {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            val clip = ClipData.newPlainText("SA-MP Server IP", "$lanIp:7777")
-                            clipboard.setPrimaryClip(clip)
-                            Toast.makeText(context, "Copied $lanIp:7777 to clipboard!", Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ContentCopy,
-                            contentDescription = "Copy IP",
-                            tint = AccentCyan,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
+                    Text(
+                        text = "127.0.0.1:7777",
+                        fontSize = 20.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+
+                    Text(
+                        text = "⭐ Sangat Disarankan: Koneksi internal langsung (0ms ping), tidak bergantung sinyal Wi-Fi, dan anti-putus saat beralih/membuka game.",
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
                 }
 
-                Text(
-                    text = "$lanIp:7777",
-                    fontSize = 22.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
+                // Section 2: LAN Wi-Fi (Multiplayer Bareng Teman)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Wifi,
+                                contentDescription = null,
+                                tint = TextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "Main Bareng Teman (Satu Wi-Fi)",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextSecondary
+                            )
+                        }
 
-                Text(
-                    text = "Connect from client on same Wi-Fi / Hotspot or test locally",
-                    fontSize = 11.sp,
-                    color = TextMuted
-                )
+                        IconButton(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip = ClipData.newPlainText("SA-MP Server IP", "$lanIp:7777")
+                                clipboard.setPrimaryClip(clip)
+                                Toast.makeText(context, "Disalin: $lanIp:7777", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = "Copy LAN IP",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "$lanIp:7777",
+                        fontSize = 16.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary
+                    )
+
+                    Text(
+                        text = "Bagikan alamat ini jika teman Anda ingin bergabung dari HP lain via Wi-Fi/Hotspot yang sama.",
+                        fontSize = 11.sp,
+                        color = TextMuted
+                    )
+                }
             }
         }
 
@@ -414,6 +484,105 @@ fun DashboardScreen(
                     ) {
                         Text(text = "Nonaktifkan Optimasi Baterai", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
+                }
+            }
+        }
+
+        // Background Stability & Anti-Disconnect Guide Card
+        var showAntiDcGuide by remember { mutableStateOf(false) }
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, if (showAntiDcGuide) AccentCyan else SurfaceCardBorder)
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Security,
+                            contentDescription = null,
+                            tint = AccentCyan,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Panduan Anti-Disconnect (HyperOS / Android 14)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                    }
+
+                    TextButton(onClick = { showAntiDcGuide = !showAntiDcGuide }) {
+                        Text(
+                            text = if (showAntiDcGuide) "Tutup" else "Solusi HP",
+                            color = AccentCyan,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                if (showAntiDcGuide) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(BgDark.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                            .padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "1. Gembok Aplikasi di Recent Apps (Penting di Xiaomi/HyperOS):",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentCyan
+                        )
+                        Text(
+                            text = "Buka menu Recent Apps (Multitask HP) -> Tekan & tahan jendela PocketSAMP -> Ketuk ikon Gembok (Lock). Ini mencegah OS membekukan server saat Anda membuka game full screen.",
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+
+                        Text(
+                            text = "2. Gunakan IP 127.0.0.1:7777:",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentCyan
+                        )
+                        Text(
+                            text = "Jika bermain di HP ini, masukkan 127.0.0.1:7777 di launcher SA-MP Anda. Jalur loopback internal ini tidak pernah diputus oleh Wi-Fi sleep Android.",
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+
+                        Text(
+                            text = "3. Matikan Pembatasan Proses Turunan (Android 12+):",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentCyan
+                        )
+                        Text(
+                            text = "Buka Pengaturan HP > Opsi Pengembang (Developer Options) > Aktifkan 'Nonaktifkan pembatasan proses turunan' (Disable child process restrictions) agar proses server QEMU tidak dibunuh sistem (Exit 137).",
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+                } else {
+                    Text(
+                        text = "Jika sering muncul 'Lost Connection' saat beralih ke game full screen, ketuk 'Solusi HP' untuk langkah penstabilan.",
+                        fontSize = 11.sp,
+                        color = TextMuted
+                    )
                 }
             }
         }

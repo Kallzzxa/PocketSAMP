@@ -10,7 +10,8 @@ import java.io.File
 import java.io.InputStreamReader
 
 class ProcessRunner(
-    private val tag: String
+    private val tag: String,
+    var onExit: ((exitCode: Int) -> Unit)? = null
 ) {
     private var process: Process? = null
     private var job: Job? = null
@@ -44,6 +45,11 @@ class ProcessRunner(
 
             job = scope.launch(Dispatchers.IO) {
                 try {
+                    android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_MORE_FAVORABLE)
+                } catch (ignored: Exception) {
+                }
+
+                try {
                     BufferedReader(InputStreamReader(proc.inputStream)).use { reader ->
                         var line: String? = reader.readLine()
                         while (line != null && isActive) {
@@ -56,6 +62,7 @@ class ProcessRunner(
                 } finally {
                     val exitVal = proc.waitFor()
                     _logs.emit("[$tag] Process exited with code $exitVal")
+                    onExit?.invoke(exitVal)
                 }
             }
         } catch (e: Exception) {

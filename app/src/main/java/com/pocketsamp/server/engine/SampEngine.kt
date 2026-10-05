@@ -15,7 +15,11 @@ class SampEngine(private val context: Context) {
         private const val TAG = "SampEngine"
     }
 
-    private val processRunner = ProcessRunner("SA-MP")
+    var onExit: ((exitCode: Int) -> Unit)? = null
+
+    private val processRunner = ProcessRunner("SA-MP") { exitCode ->
+        onExit?.invoke(exitCode)
+    }
     private var logPollingJob: Job? = null
 
     private val _serverLogs = MutableSharedFlow<String>(replay = 100)
