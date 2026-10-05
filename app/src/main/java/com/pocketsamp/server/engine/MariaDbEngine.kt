@@ -16,7 +16,11 @@ class MariaDbEngine(private val context: Context) {
 
     private val processRunner = ProcessRunner("MariaDB")
 
-    private val _dbLogs = MutableSharedFlow<String>(replay = 50)
+    private val _dbLogs = MutableSharedFlow<String>(
+        replay = 50,
+        extraBufferCapacity = 500,
+        onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST
+    )
     val dbLogs: SharedFlow<String> = _dbLogs.asSharedFlow()
 
     val isRunning: Boolean
@@ -83,9 +87,9 @@ class MariaDbEngine(private val context: Context) {
             scope = scope
         )
 
-        scope.launch {
+        scope.launch(Dispatchers.IO) {
             processRunner.logs.collect { line ->
-                _dbLogs.emit(line)
+                _dbLogs.tryEmit(line)
             }
         }
     }

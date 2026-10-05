@@ -22,7 +22,11 @@ class SampEngine(private val context: Context) {
     }
     private var logPollingJob: Job? = null
 
-    private val _serverLogs = MutableSharedFlow<String>(replay = 100)
+    private val _serverLogs = MutableSharedFlow<String>(
+        replay = 100,
+        extraBufferCapacity = 1000,
+        onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST
+    )
     val serverLogs: SharedFlow<String> = _serverLogs.asSharedFlow()
 
     val isRunning: Boolean
@@ -145,9 +149,9 @@ class SampEngine(private val context: Context) {
         )
 
         // Relay stdout logs
-        scope.launch {
+        scope.launch(Dispatchers.IO) {
             processRunner.logs.collect { line ->
-                _serverLogs.emit(line)
+                _serverLogs.tryEmit(line)
             }
         }
 
@@ -175,7 +179,7 @@ class SampEngine(private val context: Context) {
                             raf.seek(filePointer)
                             var line: String? = raf.readLine()
                             while (line != null) {
-                                _serverLogs.emit(line)
+                                _serverLogs.tryEmit(line)
                                 line = raf.readLine()
                             }
                             filePointer = raf.filePointer

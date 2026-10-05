@@ -2,6 +2,7 @@ package com.pocketsamp.server.engine
 
 import android.util.Log
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -16,7 +17,11 @@ class ProcessRunner(
     private var process: Process? = null
     private var job: Job? = null
 
-    private val _logs = MutableSharedFlow<String>(replay = 50)
+    private val _logs = MutableSharedFlow<String>(
+        replay = 100,
+        extraBufferCapacity = 1000,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
     val logs: SharedFlow<String> = _logs.asSharedFlow()
 
     val isRunning: Boolean
@@ -50,26 +55,24 @@ class ProcessRunner(
                 }
 
                 try {
-                    BufferedReader(InputStreamReader(proc.inputStream)).use { reader ->
+                    BufferedReader(InputStreamReader(proc.inputStream), 8192).use { reader ->
                         var line: String? = reader.readLine()
                         while (line != null && isActive) {
-                            _logs.emit("[$tag] $line")
+                            _logs.tryEmit("[$tag] $line")
                             line = reader.readLine()
                         }
                     }
                 } catch (e: Exception) {
-                    _logs.emit("[$tag] Stream closed: ${e.message}")
+                    _logs.tryEmit("[$tag] Stream closed: ${e.message}")
                 } finally {
                     val exitVal = proc.waitFor()
-                    _logs.emit("[$tag] Process exited with code $exitVal")
+                    _logs.tryEmit("[$tag] Process exited with code $exitVal")
                     onExit?.invoke(exitVal)
                 }
             }
         } catch (e: Exception) {
             Log.e(tag, "Failed to start process: ${e.message}", e)
-            scope.launch {
-                _logs.emit("[$tag] Failed to start: ${e.message}")
-            }
+            _logs.tryEmit("[$tag] Failed to start: ${e.message}")
         }
     }
 

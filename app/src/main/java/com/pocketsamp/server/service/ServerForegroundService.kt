@@ -59,17 +59,23 @@ class ServerForegroundService : Service() {
         private val _lanIp = MutableStateFlow("127.0.0.1")
         val lanIp: StateFlow<String> = _lanIp.asStateFlow()
 
+        private val logLock = Any()
+
         fun appendLog(line: String) {
-            val current = _logFeed.value.toMutableList()
-            if (current.size > 500) {
-                current.removeAt(0)
+            synchronized(logLock) {
+                val current = _logFeed.value.toMutableList()
+                if (current.size > 500) {
+                    current.removeAt(0)
+                }
+                current.add(line)
+                _logFeed.value = current
             }
-            current.add(line)
-            _logFeed.value = current
         }
 
         fun clearLogs() {
-            _logFeed.value = emptyList()
+            synchronized(logLock) {
+                _logFeed.value = emptyList()
+            }
         }
     }
 
@@ -134,11 +140,11 @@ class ServerForegroundService : Service() {
             }
         }
 
-        // Stream logs from engines
-        serviceScope.launch {
+        // Stream logs from engines asynchronously without blocking UI thread
+        serviceScope.launch(Dispatchers.Default) {
             sampEngine.serverLogs.collect { appendLog(it) }
         }
-        serviceScope.launch {
+        serviceScope.launch(Dispatchers.Default) {
             mariaDbEngine.dbLogs.collect { appendLog(it) }
         }
 
