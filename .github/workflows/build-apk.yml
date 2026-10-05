@@ -42,3 +42,19 @@ jobs:
         with:
           name: PocketSAMP-signed-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload to GoFile (High-Speed Mirror)
+        run: |
+          APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+          if [ -f "$APK_PATH" ]; then
+            cp "$APK_PATH" "PocketSAMP-v1.0.0-signed.apk"
+            SERVER=$(curl -s https://api.gofile.io/servers | jq -r '.data.servers[0].name // "store1"')
+            echo "Uploading APK to GoFile server: $SERVER..."
+            RESPONSE=$(curl -s -F "file=@PocketSAMP-v1.0.0-signed.apk" "https://${SERVER}.gofile.io/contents/uploadfile")
+            DOWNLOAD_PAGE=$(echo "$RESPONSE" | jq -r '.data.downloadPage // empty')
+            echo "================================================="
+            echo "🚀 GOFILE HIGH-SPEED DOWNLOAD LINK: $DOWNLOAD_PAGE"
+            echo "================================================="
+            echo "### 🚀 GoFile High-Speed Direct Link (Full Speed)" >> $GITHUB_STEP_SUMMARY
+            echo "👉 **[Download PocketSAMP APK ($DOWNLOAD_PAGE)]($DOWNLOAD_PAGE)**" >> $GITHUB_STEP_SUMMARY
+          fi
