@@ -18,7 +18,7 @@ class AssetExtractor(private val context: Context) {
         private const val TAG = "AssetExtractor"
         private const val PREF_NAME = "pocketsamp_assets"
         private const val KEY_INSTALLED_VERSION = "assets_installed_version"
-        private const val CURRENT_VERSION = 3
+        private const val CURRENT_VERSION = 4
     }
 
     suspend fun isExtracted(): Boolean = withContext(Dispatchers.IO) {

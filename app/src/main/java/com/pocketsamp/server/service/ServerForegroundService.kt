@@ -14,12 +14,19 @@ import com.pocketsamp.server.R
 import com.pocketsamp.server.engine.AssetExtractor
 import com.pocketsamp.server.engine.MariaDbEngine
 import com.pocketsamp.server.engine.SampEngine
+import com.pocketsamp.server.crash.CrashHandler
+import com.pocketsamp.server.crash.CrashManager
+import com.pocketsamp.server.crash.CrashReport
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.net.Inet4Address
 import java.net.NetworkInterface
+import java.text.SimpleDateFormat
+import java.util.*
 
 enum class ServerStatus {
     STOPPED,
@@ -147,6 +154,29 @@ class ServerForegroundService : Service() {
                 val errorDetails = e.message ?: e.javaClass.simpleName
                 appendLog("[PocketSAMP Error] Failed to start: $errorDetails")
                 Log.e("ServerForegroundService", "Startup error", e)
+
+                // Record to CrashManager for in-app tracking
+                try {
+                    val timestamp = System.currentTimeMillis()
+                    val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                    val sw = StringWriter()
+                    e.printStackTrace(PrintWriter(sw))
+                    CrashManager.saveCrash(
+                        this@ServerForegroundService,
+                        CrashReport(
+                            id = UUID.randomUUID().toString().substring(0, 8),
+                            timestamp = timestamp,
+                            formattedDate = dateFormat.format(Date(timestamp)),
+                            exceptionClass = e.javaClass.name,
+                            message = e.message,
+                            threadName = Thread.currentThread().name,
+                            deviceInfo = CrashHandler.getDeviceInfo(this@ServerForegroundService),
+                            stackTrace = sw.toString()
+                        )
+                    )
+                } catch (ignored: Exception) {
+                }
+
                 _serverStatus.value = ServerStatus.STOPPED
                 stopForeground(STOP_FOREGROUND_REMOVE)
             }
