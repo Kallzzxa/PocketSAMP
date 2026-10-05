@@ -117,6 +117,7 @@ class ServerForegroundService : Service() {
     private fun startServers() {
         if (_serverStatus.value == ServerStatus.RUNNING || _serverStatus.value == ServerStatus.STARTING) return
 
+        clearLogs()
         _serverStatus.value = ServerStatus.STARTING
         acquireLocks()
         startForeground(NOTIFICATION_ID, buildNotification("Starting servers..."))

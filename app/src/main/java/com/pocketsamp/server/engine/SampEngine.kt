@@ -45,6 +45,12 @@ class SampEngine(private val context: Context) {
 
         serverBinary.setExecutable(true, false)
 
+        // Clear historical log file so the console only shows the current session
+        val logFile = File(sampDir, "server_log.txt")
+        if (logFile.exists()) {
+            logFile.delete()
+        }
+
         // Execute SA-MP server via QEMU user-mode translation directly (-L provides the x86 sysroot).
         // This eliminates PRoot ptrace overhead, glue rootfs bugs, and /tmp permission failures.
         val command = listOf(
