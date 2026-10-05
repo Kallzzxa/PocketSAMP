@@ -143,7 +143,9 @@ class ServerForegroundService : Service() {
                 appendLog("[PocketSAMP] All services active! Connect to ${_lanIp.value}:7777")
 
             } catch (e: Exception) {
-                appendLog("[PocketSAMP Error] Failed to start: ${e.message}")
+                val errorDetails = e.message ?: e.javaClass.simpleName
+                appendLog("[PocketSAMP Error] Failed to start: $errorDetails")
+                Log.e("ServerForegroundService", "Startup error", e)
                 _serverStatus.value = ServerStatus.STOPPED
                 stopForeground(STOP_FOREGROUND_REMOVE)
             }

@@ -35,15 +35,31 @@ class MariaDbEngine(private val context: Context) {
         dataDir.mkdirs()
         File(mariadbDir, "tmp").mkdirs()
 
+        val prootBinary = File(context.applicationInfo.nativeLibraryDir, "libproot.so")
         val installDbBinary = File(mariadbDir, "bin/mariadb-install-db")
         installDbBinary.setExecutable(true, false)
 
-        val cmd = listOf(
-            installDbBinary.absolutePath,
-            "--datadir=${dataDir.absolutePath}",
-            "--basedir=${mariadbDir.absolutePath}",
-            "--user=root"
-        )
+        // Run through PRoot to bypass Android 10+ SELinux W^X (noexec on filesDir)
+        val cmd = if (prootBinary.exists()) {
+            listOf(
+                prootBinary.absolutePath,
+                "-b", "/dev",
+                "-b", "/proc",
+                "-b", "${mariadbDir.absolutePath}:/mariadb",
+                "-w", "/mariadb",
+                "/mariadb/bin/mariadb-install-db",
+                "--datadir=/mariadb/data",
+                "--basedir=/mariadb",
+                "--user=root"
+            )
+        } else {
+            listOf(
+                installDbBinary.absolutePath,
+                "--datadir=${dataDir.absolutePath}",
+                "--basedir=${mariadbDir.absolutePath}",
+                "--user=root"
+            )
+        }
 
         val env = mapOf(
             "LD_LIBRARY_PATH" to File(mariadbDir, "lib").absolutePath,
@@ -77,13 +93,27 @@ class MariaDbEngine(private val context: Context) {
         val mariadbDir = File(context.filesDir, "mariadb")
         val daemonBinary = File(mariadbDir, "bin/mariadbd")
         val cnfFile = File(mariadbDir, "my.cnf")
+        val prootBinary = File(context.applicationInfo.nativeLibraryDir, "libproot.so")
 
         daemonBinary.setExecutable(true, false)
 
-        val command = listOf(
-            daemonBinary.absolutePath,
-            "--defaults-file=${cnfFile.absolutePath}"
-        )
+        // Route through PRoot to bypass SELinux noexec restriction on internal storage
+        val command = if (prootBinary.exists()) {
+            listOf(
+                prootBinary.absolutePath,
+                "-b", "/dev",
+                "-b", "/proc",
+                "-b", "${mariadbDir.absolutePath}:/mariadb",
+                "-w", "/mariadb",
+                "/mariadb/bin/mariadbd",
+                "--defaults-file=/mariadb/my.cnf"
+            )
+        } else {
+            listOf(
+                daemonBinary.absolutePath,
+                "--defaults-file=${cnfFile.absolutePath}"
+            )
+        }
 
         val env = mapOf(
             "LD_LIBRARY_PATH" to File(mariadbDir, "lib").absolutePath,

@@ -56,6 +56,10 @@ android {
         jvmTarget = "17"
     }
 
+    androidResources {
+        noCompress += listOf("tar", "gz")
+    }
+
     buildFeatures {
         compose = true
     }
