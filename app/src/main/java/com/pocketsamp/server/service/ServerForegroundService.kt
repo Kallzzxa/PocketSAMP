@@ -3,7 +3,9 @@ package com.pocketsamp.server.service
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.net.wifi.WifiManager
+import android.os.Build
 import android.os.Binder
 import android.os.IBinder
 import android.os.PowerManager
@@ -108,11 +110,33 @@ class ServerForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_START -> startServers()
-            ACTION_STOP -> stopServers()
+        val prefs = getSharedPreferences("pocketsamp_prefs", Context.MODE_PRIVATE)
+        if (intent == null) {
+            // Recreated by Android OS after extreme memory pressure
+            val shouldBeRunning = prefs.getBoolean("server_running_state", false)
+            if (shouldBeRunning && _serverStatus.value != ServerStatus.RUNNING) {
+                Log.i("ServerForegroundService", "Restoring server execution following OS process recreation.")
+                startServers()
+            }
+            return START_STICKY
         }
-        return START_NOT_STICKY
+
+        when (intent.action) {
+            ACTION_START -> {
+                prefs.edit().putBoolean("server_running_state", true).apply()
+                startServers()
+            }
+            ACTION_STOP -> {
+                prefs.edit().putBoolean("server_running_state", false).apply()
+                stopServers()
+            }
+        }
+        return START_STICKY
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        Log.i("ServerForegroundService", "App task closed; keeping PocketSAMP server active in foreground.")
     }
 
     private fun startServers() {
@@ -121,7 +145,13 @@ class ServerForegroundService : Service() {
         clearLogs()
         _serverStatus.value = ServerStatus.STARTING
         acquireLocks()
-        startForeground(NOTIFICATION_ID, buildNotification("Starting servers..."))
+
+        val notif = buildNotification("Starting servers...")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(NOTIFICATION_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(NOTIFICATION_ID, notif)
+        }
 
         serviceScope.launch {
             try {
@@ -138,13 +168,13 @@ class ServerForegroundService : Service() {
                 // 2. Initialize and start MariaDB
                 updateNotification("Starting MariaDB (MySQL)...")
                 mariaDbEngine.initializeIfNeeded(this)
-                mariaDbEngine.start(this)
+                mariaDbEngine.start(serviceScope)
                 _isDbRunning.value = true
                 delay(1000)
 
-                // 3. Start SA-MP server via PRoot + QEMU
+                // 3. Start SA-MP server via QEMU
                 updateNotification("Launching SA-MP Server...")
-                sampEngine.start(this)
+                sampEngine.start(serviceScope)
                 delay(1000)
 
                 _serverStatus.value = ServerStatus.RUNNING
@@ -186,6 +216,8 @@ class ServerForegroundService : Service() {
     }
 
     private fun stopServers() {
+        val prefs = getSharedPreferences("pocketsamp_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("server_running_state", false).apply()
         _serverStatus.value = ServerStatus.STOPPING
         serviceScope.launch {
             appendLog("[PocketSAMP] Shutting down SA-MP server...")
@@ -272,6 +304,8 @@ class ServerForegroundService : Service() {
             NotificationManager.IMPORTANCE_LOW
         ).apply {
             description = "Maintains SA-MP local server background process"
+            setShowBadge(false)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(channel)
@@ -296,6 +330,9 @@ class ServerForegroundService : Service() {
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopIntent)
             .build()
     }
