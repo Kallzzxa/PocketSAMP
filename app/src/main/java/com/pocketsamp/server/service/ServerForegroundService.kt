@@ -74,6 +74,7 @@ class ServerForegroundService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
+    private var multicastLock: WifiManager.MulticastLock? = null
 
     private lateinit var assetExtractor: AssetExtractor
     private lateinit var sampEngine: SampEngine
@@ -225,12 +226,31 @@ class ServerForegroundService : Service() {
     private fun acquireLocks() {
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "PocketSAMP::CpuWakeLock").apply {
+            setReferenceCounted(false)
             acquire(12 * 60 * 60 * 1000L) // 12 hours max safety timeout
         }
 
         val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        wifiLock = wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "PocketSAMP::WifiLock").apply {
+
+        // 1. Wi-Fi Lock with Low Latency on Android 10+
+        val wifiMode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            WifiManager.WIFI_MODE_FULL_LOW_LATENCY
+        } else {
+            WifiManager.WIFI_MODE_FULL_HIGH_PERF
+        }
+        wifiLock = wifiManager.createWifiLock(wifiMode, "PocketSAMP::WifiLock").apply {
+            setReferenceCounted(false)
             acquire()
+        }
+
+        // 2. Multicast Lock - Prevents Android Wi-Fi chipset from dropping incoming UDP query packets
+        try {
+            multicastLock = wifiManager.createMulticastLock("PocketSAMP::MulticastLock").apply {
+                setReferenceCounted(false)
+                acquire()
+            }
+        } catch (e: Exception) {
+            Log.w("ServerForegroundService", "MulticastLock warning: ${e.message}")
         }
     }
 
@@ -240,6 +260,9 @@ class ServerForegroundService : Service() {
 
         wifiLock?.let { if (it.isHeld) it.release() }
         wifiLock = null
+
+        multicastLock?.let { if (it.isHeld) it.release() }
+        multicastLock = null
     }
 
     private fun createNotificationChannel() {

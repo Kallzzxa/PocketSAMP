@@ -9,12 +9,17 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BatteryAlert
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.PlayArrow
@@ -53,12 +58,28 @@ fun DashboardScreen(
     var currentServerDir by remember { mutableStateOf(ServerDirectoryManager.getServerDirectory(context)) }
     var hasStoragePermission by remember { mutableStateOf(ServerDirectoryManager.hasStoragePermission(context)) }
 
+    val powerManager = remember { context.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager }
+    var isBatteryOptIgnored by remember {
+        mutableStateOf(
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
+            } else {
+                true
+            }
+        )
+    }
+
     if (lifecycleOwner != null) {
         DisposableEffect(lifecycleOwner) {
             val observer = LifecycleEventObserver { _, event ->
                 if (event == Lifecycle.Event.ON_RESUME) {
                     hasStoragePermission = ServerDirectoryManager.hasStoragePermission(context)
                     currentServerDir = ServerDirectoryManager.getServerDirectory(context)
+                    isBatteryOptIgnored = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                        powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
+                    } else {
+                        true
+                    }
                 }
             }
             lifecycleOwner.lifecycle.addObserver(observer)
@@ -332,6 +353,66 @@ fun DashboardScreen(
                             .height(36.dp)
                     ) {
                         Text(text = "Beri Izin Akses File", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+
+        // Battery Optimization Alert (keeps server responsive in background when user opens SA-MP client)
+        if (!isBatteryOptIgnored) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = AccentCyan.copy(alpha = 0.12f)),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, AccentCyan)
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Bolt,
+                            contentDescription = null,
+                            tint = AccentCyan,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Stabilkan Proses Latar Belakang",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentCyan
+                        )
+                    }
+
+                    Text(
+                        text = "Nonaktifkan optimasi baterai agar Android tidak membatasi/menjeda server saat Anda membuka game/launcher SA-MP.",
+                        fontSize = 11.sp,
+                        color = TextPrimary
+                    )
+
+                    Button(
+                        onClick = {
+                            try {
+                                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                context.startActivity(intent)
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentCyan, contentColor = BgDark),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(36.dp)
+                    ) {
+                        Text(text = "Nonaktifkan Optimasi Baterai", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                 }
             }

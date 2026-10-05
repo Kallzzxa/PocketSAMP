@@ -7,12 +7,13 @@ data class ServerConfig(
     var port: Int = 7777,
     var maxPlayers: Int = 50,
     var rconPassword: String = "admin123",
-    var gamemode: String = "grandlarc 1",
-    var filterscripts: String = "base gl_actions gl_property gl_realtime",
+    var gamemode: String = "bare 1",
+    var filterscripts: String = "",
     var plugins: String = "",
     var announce: Boolean = false,
     var query: Boolean = true,
-    var lanmode: Boolean = false
+    var lanmode: Boolean = true,
+    var sleep: Int = 1
 ) {
     companion object {
         fun loadFromFile(file: File): ServerConfig {
@@ -38,6 +39,7 @@ data class ServerConfig(
                         "announce" -> config.announce = value == "1"
                         "query" -> config.query = value == "1"
                         "lanmode" -> config.lanmode = value == "1"
+                        "sleep" -> config.sleep = value.toIntOrNull() ?: 1
                     }
                 }
             }
@@ -61,6 +63,8 @@ data class ServerConfig(
                 }
                 appendLine("announce ${if (config.announce) 1 else 0}")
                 appendLine("query ${if (config.query) 1 else 0}")
+                appendLine("sleep ${config.sleep}")
+                appendLine("ackslimit 3000")
                 appendLine("weburl www.sa-mp.com")
                 appendLine("maxnpc 0")
                 appendLine("onfoot_rate 40")

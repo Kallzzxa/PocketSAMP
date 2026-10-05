@@ -61,6 +61,54 @@ class SampEngine(private val context: Context) {
             return
         }
 
+        // Auto-tune mobile networking in server.cfg to eliminate query drops & high ping
+        try {
+            var cfgContent = cfgFile.readText()
+            var modified = false
+
+            // 1. Ensure lanmode 1: 'lanmode 0' triggers SA-MP's aggressive anti-flood query throttle, causing mobile launchers to report 'Offline (999ms)'
+            if (cfgContent.contains(Regex("""(?i)^\s*lanmode\s+0""", RegexOption.MULTILINE))) {
+                cfgContent = cfgContent.replace(Regex("""(?i)^\s*lanmode\s+0""", RegexOption.MULTILINE), "lanmode 1")
+                modified = true
+                scope.launch {
+                    _serverLogs.emit("[Network Tuning] 'lanmode 1' diaktifkan untuk mencegah query drop pada launcher mobile.")
+                }
+            } else if (!cfgContent.contains(Regex("""(?i)^\s*lanmode""", RegexOption.MULTILINE))) {
+                cfgContent = "lanmode 1\n$cfgContent"
+                modified = true
+            }
+
+            // 2. Ensure query 1: allows client launchers to query ping and player info
+            if (cfgContent.contains(Regex("""(?i)^\s*query\s+0""", RegexOption.MULTILINE))) {
+                cfgContent = cfgContent.replace(Regex("""(?i)^\s*query\s+0""", RegexOption.MULTILINE), "query 1")
+                modified = true
+            } else if (!cfgContent.contains(Regex("""(?i)^\s*query""", RegexOption.MULTILINE))) {
+                cfgContent = "query 1\n$cfgContent"
+                modified = true
+            }
+
+            // 3. Ensure sleep 1: default sleep 5-10ms causes 300+ms ping in emulated loop; sleep 1 gives 10-20ms responsiveness
+            if (cfgContent.contains(Regex("""(?i)^\s*sleep\s+([3-9]|\d{2,})""", RegexOption.MULTILINE))) {
+                cfgContent = cfgContent.replace(Regex("""(?i)^\s*sleep\s+([3-9]|\d{2,})""", RegexOption.MULTILINE), "sleep 1")
+                modified = true
+            } else if (!cfgContent.contains(Regex("""(?i)^\s*sleep""", RegexOption.MULTILINE))) {
+                cfgContent += "\nsleep 1\n"
+                modified = true
+            }
+
+            // 4. Ensure ackslimit 3000 to prevent mobile packet burst drops
+            if (!cfgContent.contains(Regex("""(?i)^\s*ackslimit""", RegexOption.MULTILINE))) {
+                cfgContent += "\nackslimit 3000\n"
+                modified = true
+            }
+
+            if (modified) {
+                cfgFile.writeText(cfgContent)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Notice: could not auto-tune server.cfg: ${e.message}")
+        }
+
         serverBinary.setExecutable(true, false)
 
         // Clear historical log file so the console only shows the current session
