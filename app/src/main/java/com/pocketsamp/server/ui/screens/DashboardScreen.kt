@@ -35,7 +35,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.pocketsamp.server.config.ServerDirectoryManager
 import com.pocketsamp.server.service.ServerStatus
 import com.pocketsamp.server.ui.theme.*
@@ -50,20 +49,22 @@ fun DashboardScreen(
     onStopServer: () -> Unit
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val lifecycleOwner = context as? androidx.lifecycle.LifecycleOwner
     var currentServerDir by remember { mutableStateOf(ServerDirectoryManager.getServerDirectory(context)) }
     var hasStoragePermission by remember { mutableStateOf(ServerDirectoryManager.hasStoragePermission(context)) }
 
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                hasStoragePermission = ServerDirectoryManager.hasStoragePermission(context)
-                currentServerDir = ServerDirectoryManager.getServerDirectory(context)
+    if (lifecycleOwner != null) {
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    hasStoragePermission = ServerDirectoryManager.hasStoragePermission(context)
+                    currentServerDir = ServerDirectoryManager.getServerDirectory(context)
+                }
             }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
         }
     }
 
