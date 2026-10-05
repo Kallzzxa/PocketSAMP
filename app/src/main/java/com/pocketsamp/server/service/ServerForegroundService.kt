@@ -7,6 +7,7 @@ import android.net.wifi.WifiManager
 import android.os.Binder
 import android.os.IBinder
 import android.os.PowerManager
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.pocketsamp.server.MainActivity
 import com.pocketsamp.server.R
