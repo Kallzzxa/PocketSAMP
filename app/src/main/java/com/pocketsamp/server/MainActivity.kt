@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.core.content.ContextCompat
 import com.pocketsamp.server.db.DatabaseManager
 import com.pocketsamp.server.service.ServerForegroundService
+import com.pocketsamp.server.service.ServerStatus
 import com.pocketsamp.server.ui.screens.ConfigScreen
 import com.pocketsamp.server.ui.screens.ConsoleScreen
 import com.pocketsamp.server.ui.screens.CrashLogsScreen
@@ -67,8 +68,7 @@ class MainActivity : ComponentActivity() {
                 if (isRunning) {
                     moveTaskToBack(true)
                 } else {
-                    isEnabled = false
-                    onBackPressedDispatcher.onBackPressed()
+                    finish()
                 }
             }
         })
