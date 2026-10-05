@@ -65,15 +65,19 @@ graph TD
 
 ---
 
-## 📂 Server File Layout (Device Storage)
+## 📂 Zero-Copy Server File Layout (User Accessible)
 
-When the server initializes, files are extracted to the app's internal storage (`/data/data/com.pocketsamp.server/files/`):
+Server files are located in Android's shared external storage directory (accessible without root via **ZArchiver**, **MT Manager**, or USB PC connection):
+`/storage/emulated/0/Android/data/com.pocketsamp.server/files/server/`
 
-- **`samp_server/gamemodes/`**: Place compiled `.amx` gamemodes here.
-- **`samp_server/filterscripts/`**: Place filterscript `.amx` files here.
-- **`samp_server/plugins/`**: Place x86 32-bit Linux plugins (`.so`) here.
-- **`samp_server/scriptfiles/`**: Place data files, property configs, or sqlite databases here.
-- **`samp_server/server.cfg`**: The core configuration file.
+- **`gamemodes/`**: Place compiled `.amx` gamemodes here (e.g. `bare.amx` or your custom gamemode).
+- **`filterscripts/`**: Place filterscript `.amx` files here.
+- **`plugins/`**: Place x86 32-bit Linux plugins (`.so`) here.
+- **`scriptfiles/`**: Place accounts, player data, property configs, or sqlite databases here.
+- **`server.cfg`**: The core configuration file (can also be edited via the in-app Config tab).
+- **`server_log.txt`**: Live server output log.
+
+No file duplication, no slow copy processes, and zero memory overhead. Files are read and written directly in real time by the server.
 
 ---
 

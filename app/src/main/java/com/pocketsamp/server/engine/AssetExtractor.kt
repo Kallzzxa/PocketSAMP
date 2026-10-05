@@ -18,17 +18,23 @@ class AssetExtractor(private val context: Context) {
         private const val TAG = "AssetExtractor"
         private const val PREF_NAME = "pocketsamp_assets"
         private const val KEY_INSTALLED_VERSION = "assets_installed_version"
-        private const val CURRENT_VERSION = 4
+        private const val CURRENT_VERSION = 5
+
+        fun getServerDirectory(context: Context): File {
+            val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
+            return File(baseDir, "server")
+        }
     }
 
     suspend fun isExtracted(): Boolean = withContext(Dispatchers.IO) {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
         val installedVersion = prefs.getInt(KEY_INSTALLED_VERSION, 0)
         val rootfsDir = File(context.filesDir, "rootfs_i386")
-        val sampDir = File(context.filesDir, "samp_server")
+        val binDir = File(context.filesDir, "bin")
+        val serverDir = getServerDirectory(context)
         val mariadbDir = File(context.filesDir, "mariadb")
 
-        installedVersion == CURRENT_VERSION && rootfsDir.exists() && sampDir.exists() && mariadbDir.exists()
+        installedVersion == CURRENT_VERSION && rootfsDir.exists() && binDir.exists() && serverDir.exists() && mariadbDir.exists()
     }
 
     suspend fun extractAll(onProgress: (String) -> Unit) = withContext(Dispatchers.IO) {
@@ -40,15 +46,37 @@ class AssetExtractor(private val context: Context) {
         if (!rootfsDir.exists()) rootfsDir.mkdirs()
         extractArchiveAsset("rootfs_i386", rootfsDir)
 
-        // 2. Extract samp_base
-        onProgress("Setting up SA-MP server files...")
-        val sampDir = File(filesDir, "samp_server")
-        if (!sampDir.exists()) sampDir.mkdirs()
-        extractArchiveAsset("samp_base", sampDir)
+        // 2. Setup user server directory & extract binary
+        onProgress("Setting up clean SA-MP server environment...")
+        val serverDir = getServerDirectory(context).apply { mkdirs() }
+        File(serverDir, "gamemodes").mkdirs()
+        File(serverDir, "filterscripts").mkdirs()
+        File(serverDir, "scriptfiles").mkdirs()
+        File(serverDir, "plugins").mkdirs()
 
-        // Ensure samp03svr has executable bit set
-        File(sampDir, "samp03svr").setExecutable(true, false)
-        File(sampDir, "announce").setExecutable(true, false)
+        // Extract engine binaries to internal storage (context.filesDir/bin)
+        val binDir = File(filesDir, "bin").apply { mkdirs() }
+        extractArchiveAsset("samp_base", binDir)
+        File(binDir, "samp03svr").setExecutable(true, false)
+        File(binDir, "announce").setExecutable(true, false)
+
+        // Copy clean server.cfg to user folder if not present
+        val userCfg = File(serverDir, "server.cfg")
+        if (!userCfg.exists()) {
+            val templateCfg = File(binDir, "server.cfg")
+            if (templateCfg.exists()) {
+                templateCfg.copyTo(userCfg, overwrite = false)
+            }
+        }
+
+        // Copy minimal starter bare.amx if user gamemodes is empty
+        val starterAmx = File(serverDir, "gamemodes/bare.amx")
+        if (!starterAmx.exists()) {
+            val templateAmx = File(binDir, "gamemodes/bare.amx")
+            if (templateAmx.exists()) {
+                templateAmx.copyTo(starterAmx, overwrite = false)
+            }
+        }
 
         // 3. Extract mariadb_arm64
         onProgress("Deploying MariaDB ARM64 engine...")

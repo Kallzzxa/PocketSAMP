@@ -18,13 +18,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pocketsamp.server.config.ServerConfig
+import com.pocketsamp.server.engine.AssetExtractor
 import com.pocketsamp.server.ui.theme.*
 import java.io.File
 
 @Composable
 fun ConfigScreen() {
     val context = LocalContext.current
-    val configFile = remember { File(context.filesDir, "samp_server/server.cfg") }
+    val configFile = remember { File(AssetExtractor.getServerDirectory(context), "server.cfg") }
 
     var config by remember { mutableStateOf(ServerConfig.loadFromFile(configFile)) }
 
@@ -93,7 +94,7 @@ fun ConfigScreen() {
             ConfigField(label = "Max Players", value = maxPlayers, onValueChange = { maxPlayers = it }, modifier = Modifier.weight(1f))
         }
         ConfigField(label = "RCON Password", value = rconPassword, onValueChange = { rconPassword = it })
-        ConfigField(label = "Gamemode0", value = gamemode, onValueChange = { gamemode = it }, hint = "e.g. grandlarc 1 or your_gamemode 1")
+        ConfigField(label = "Gamemode0", value = gamemode, onValueChange = { gamemode = it }, hint = "e.g. bare 1 or your_gamemode 1")
         ConfigField(label = "Filterscripts", value = filterscripts, onValueChange = { filterscripts = it }, hint = "Space-separated .amx names")
         ConfigField(label = "Plugins (.so)", value = plugins, onValueChange = { plugins = it }, hint = "e.g. mysql.so streamer.so sscanf.so")
     }

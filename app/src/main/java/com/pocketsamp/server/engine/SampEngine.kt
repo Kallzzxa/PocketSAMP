@@ -32,13 +32,22 @@ class SampEngine(private val context: Context) {
 
         val qemuBinary = File(nativeLibDir, "libqemu-i386.so")
         val rootfsDir = File(filesDir, "rootfs_i386")
-        val sampDir = File(filesDir, "samp_server")
-        val serverBinary = File(sampDir, "samp03svr")
+        val sampDir = AssetExtractor.getServerDirectory(context)
+        val serverBinary = File(filesDir, "bin/samp03svr").takeIf { it.exists() }
+            ?: File(filesDir, "samp_server/samp03svr").takeIf { it.exists() }
+            ?: File(sampDir, "samp03svr")
         val tempDir = File(context.cacheDir, "samp_tmp").apply { mkdirs() }
 
         if (!qemuBinary.exists()) {
             scope.launch {
                 _serverLogs.emit("[SA-MP Error] QEMU binary not found in $nativeLibDir")
+            }
+            return
+        }
+
+        if (!serverBinary.exists()) {
+            scope.launch {
+                _serverLogs.emit("[SA-MP Error] samp03svr binary not found in ${serverBinary.parent}")
             }
             return
         }
@@ -56,13 +65,13 @@ class SampEngine(private val context: Context) {
         val command = listOf(
             qemuBinary.absolutePath,
             "-L", rootfsDir.absolutePath,
-            "-E", "LD_LIBRARY_PATH=/usr/lib/i386-linux-gnu:/lib/i386-linux-gnu:/usr/lib:/lib",
+            "-E", "LD_LIBRARY_PATH=/usr/lib/i386-linux-gnu:/lib/i386-linux-gnu:/usr/lib:/lib:./plugins:plugins",
             serverBinary.absolutePath
         )
 
         val env = mapOf(
             "TMPDIR" to tempDir.absolutePath,
-            "LD_LIBRARY_PATH" to "${rootfsDir.absolutePath}/usr/lib/i386-linux-gnu:${rootfsDir.absolutePath}/lib/i386-linux-gnu",
+            "LD_LIBRARY_PATH" to "${rootfsDir.absolutePath}/usr/lib/i386-linux-gnu:${rootfsDir.absolutePath}/lib/i386-linux-gnu:${sampDir.absolutePath}/plugins",
             "HOME" to sampDir.absolutePath,
             "USER" to "root"
         )

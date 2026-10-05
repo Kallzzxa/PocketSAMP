@@ -9,14 +9,18 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,6 +30,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pocketsamp.server.engine.AssetExtractor
 import com.pocketsamp.server.service.ServerStatus
 import com.pocketsamp.server.ui.theme.*
 
@@ -39,11 +44,14 @@ fun DashboardScreen(
 ) {
     val context = LocalContext.current
 
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BgDark)
-            .padding(16.dp),
+            .padding(16.dp)
+            .verticalScroll(scrollState),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // App Header
@@ -234,7 +242,76 @@ fun DashboardScreen(
             )
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        // Server Directory Card (Zero-Copy)
+        val serverDir = remember { AssetExtractor.getServerDirectory(context) }
+        val serverPath = serverDir.absolutePath
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FolderOpen,
+                            contentDescription = "Server Folder",
+                            tint = AccentCyan,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Server Directory (Zero-Copy)",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextSecondary
+                        )
+                    }
+
+                    IconButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clip = ClipData.newPlainText("Server Path", serverPath)
+                            clipboard.setPrimaryClip(clip)
+                            Toast.makeText(context, "Path disalin ke clipboard!", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = "Copy Path",
+                            tint = AccentCyan,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+
+                Text(
+                    text = serverPath,
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = TextPrimary
+                )
+
+                Text(
+                    text = "Akses via ZArchiver / MT Manager. Taruh .amx di /gamemodes, filterscripts di /filterscripts, data di /scriptfiles.",
+                    fontSize = 11.sp,
+                    color = TextMuted
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Main Action Button
         val isBusy = status == ServerStatus.STARTING || status == ServerStatus.INITIALIZING || status == ServerStatus.STOPPING
