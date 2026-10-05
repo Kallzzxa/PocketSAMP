@@ -92,6 +92,6 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
 
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.mariadb.java.client)
+    implementation(files("libs/mariadb-java-client-3.3.3.jar"))
     implementation(libs.commons.compress)
 }

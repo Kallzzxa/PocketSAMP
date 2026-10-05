@@ -27,7 +27,7 @@ class DatabaseManager {
         init {
             try {
                 Class.forName("org.mariadb.jdbc.Driver")
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 e.printStackTrace()
             }
         }
@@ -47,7 +47,7 @@ class DatabaseManager {
             getConnection().use { conn ->
                 conn.isValid(2)
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             false
         }
     }
@@ -64,7 +64,7 @@ class DatabaseManager {
                     }
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
         }
         dbs
@@ -79,7 +79,7 @@ class DatabaseManager {
                     tables.add(rs.getString("TABLE_NAME"))
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
         }
         tables
@@ -122,7 +122,7 @@ class DatabaseManager {
                     }
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             QueryResult(error = e.message ?: "Database query error")
         }
     }
@@ -154,7 +154,7 @@ class DatabaseManager {
                 conn.commit()
             }
             Pair(true, "Database imported successfully")
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Pair(false, e.message ?: "SQL Import failed")
         }
     }
