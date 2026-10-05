@@ -51,7 +51,8 @@ jobs:
 
             # 1. Litterbox (Catbox) - Direct Fast Download (No Captcha, No Queue)
             echo "Uploading APK to Litterbox..."
-            LITTER_URL=$(curl -s --max-time 60 -F "reqtype=fileupload" -F "time=72h" -F "fileToUpload=@PocketSAMP-v1.0.0-signed.apk" https://litterbox.catbox.moe/resources/internals/api.php)
+            LITTER_URL=$(curl -s --max-time 30 -F "reqtype=fileupload" -F "time=72h" -F "fileToUpload=@PocketSAMP-v1.0.0-signed.apk" https://litterbox.catbox.moe/resources/internals/api.php)
+            echo "Litterbox output: $LITTER_URL"
             if [[ "$LITTER_URL" =~ ^https?:// ]]; then
               echo "================================================="
               echo "🚀 DIRECT DOWNLOAD LINK (LITTERBOX): $LITTER_URL"

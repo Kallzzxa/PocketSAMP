@@ -110,6 +110,12 @@ class SampEngine(private val context: Context) {
                 modified = true
             }
 
+            // 5. Ensure bind is removed so server listens on both loopback (127.0.0.1) and LAN
+            if (cfgContent.contains(Regex("""(?i)^\s*bind\s+""", RegexOption.MULTILINE))) {
+                cfgContent = cfgContent.replace(Regex("""(?i)^\s*bind\s+.*$""", RegexOption.MULTILINE), "# bind removed for localhost+LAN support")
+                modified = true
+            }
+
             if (modified) {
                 cfgFile.writeText(cfgContent)
             }

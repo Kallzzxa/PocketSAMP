@@ -41,7 +41,7 @@ enum class ServerStatus {
 class ServerForegroundService : Service() {
 
     companion object {
-        const val CHANNEL_ID = "pocketsamp_service_channel"
+        const val CHANNEL_ID = "pocketsamp_active_service_v2"
         const val NOTIFICATION_ID = 7777
 
         const val ACTION_START = "com.pocketsamp.server.ACTION_START"
@@ -189,8 +189,12 @@ class ServerForegroundService : Service() {
         acquireLocks()
 
         val notif = buildNotification("Starting servers...")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIFICATION_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            var serviceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                serviceType = serviceType or ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            }
+            startForeground(NOTIFICATION_ID, notif, serviceType)
         } else {
             startForeground(NOTIFICATION_ID, notif)
         }
@@ -338,10 +342,10 @@ class ServerForegroundService : Service() {
         val channel = NotificationChannel(
             CHANNEL_ID,
             getString(R.string.notification_channel_name),
-            NotificationManager.IMPORTANCE_LOW
+            NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
             description = "Maintains SA-MP local server background process"
-            setShowBadge(false)
+            setShowBadge(true)
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
         val manager = getSystemService(NotificationManager::class.java)
@@ -362,13 +366,13 @@ class ServerForegroundService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("PocketSAMP Server")
+            .setContentTitle("PocketSAMP Server (Aktif)")
             .setContentText(contentText)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopIntent)
             .build()
