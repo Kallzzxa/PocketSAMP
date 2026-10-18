@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storage
@@ -31,12 +32,14 @@ import com.pocketsamp.server.ui.screens.ConsoleScreen
 import com.pocketsamp.server.ui.screens.CrashLogsScreen
 import com.pocketsamp.server.ui.screens.DashboardScreen
 import com.pocketsamp.server.ui.screens.DatabaseScreen
+import com.pocketsamp.server.ui.screens.IdeScreen
 import com.pocketsamp.server.ui.theme.*
 
 enum class AppTab(val label: String, val icon: ImageVector) {
     DASHBOARD("Dashboard", Icons.Default.Dashboard),
     CONSOLE("Console", Icons.Default.Terminal),
     DATABASE("Database", Icons.Default.Storage),
+    IDE("IDE", Icons.Default.Code),
     CRASHES("Crash Logs", Icons.Default.BugReport),
     CONFIG("Config", Icons.Default.Settings)
 }
@@ -137,6 +140,7 @@ class MainActivity : ComponentActivity() {
                         dbManager = dbManager,
                         isDbRunning = isDbRunning
                     )
+                    AppTab.IDE -> IdeScreen()
                     AppTab.CRASHES -> CrashLogsScreen()
                     AppTab.CONFIG -> ConfigScreen()
                 }
