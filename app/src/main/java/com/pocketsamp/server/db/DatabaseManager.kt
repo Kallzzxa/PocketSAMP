@@ -127,11 +127,21 @@ class DatabaseManager {
         }
     }
 
+    /** Rewrite legacy charset names the bundled server doesn't know to utf8mb4. */
+    private fun sanitizeCharset(sql: String): String {
+        var out = sql
+        // cp1251 (Windows-1251, common in SA-MP dumps) -> utf8mb4
+        out = out.replace(Regex("(?i)\\bcp1251_general_ci\\b"), "utf8mb4_unicode_ci")
+        out = out.replace(Regex("(?i)\\bcp1251_bin\\b"), "utf8mb4_bin")
+        out = out.replace(Regex("(?i)\\bcp1251\\b"), "utf8mb4")
+        return out
+    }
+
     suspend fun importSql(database: String, inputStream: InputStream): Pair<Boolean, String> = withContext(Dispatchers.IO) {
         try {
             getConnection(database).use { conn ->
                 conn.autoCommit = false
-                val reader = BufferedReader(InputStreamReader(inputStream))
+                val reader = BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8))
                 val statementBuilder = StringBuilder()
                 var line: String? = reader.readLine()
 
@@ -141,7 +151,7 @@ class DatabaseManager {
                         if (trimmed.isNotEmpty() && !trimmed.startsWith("--") && !trimmed.startsWith("/*")) {
                             statementBuilder.append(line).append("\n")
                             if (trimmed.endsWith(";")) {
-                                val query = statementBuilder.toString().trim()
+                                val query = sanitizeCharset(statementBuilder.toString().trim())
                                 if (query.isNotEmpty()) {
                                     stmt.execute(query)
                                 }
