@@ -13,7 +13,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
@@ -47,6 +49,7 @@ fun DatabaseScreen(
     var sqlQuery by remember { mutableStateOf("SHOW TABLES;") }
     var queryResult by remember { mutableStateOf<QueryResult?>(null) }
     var isExecuting by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     fun refreshDbs() {
         if (!isDbRunning) return
@@ -88,6 +91,31 @@ fun DatabaseScreen(
             }
         } else if (selectedDb == null) {
             Toast.makeText(context, "Select or create a database first!", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // SQL File Export Launcher
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/sql")
+    ) { uri: Uri? ->
+        if (uri != null && selectedDb != null) {
+            scope.launch {
+                try {
+                    val (success, dump) = dbManager.exportSql(selectedDb!!)
+                    if (success) {
+                        context.contentResolver.openOutputStream(uri)?.use { out ->
+                            out.write(dump.toByteArray())
+                        }
+                        Toast.makeText(context, "Database exported", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Export Error: $dump", Toast.LENGTH_LONG).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Export Error: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        } else if (selectedDb == null) {
+            Toast.makeText(context, "Select a database first!", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -136,6 +164,40 @@ fun DatabaseScreen(
                     )
                 }
 
+                // Export Database Button
+                IconButton(
+                    onClick = { exportLauncher.launch("${selectedDb}_backup.sql") },
+                    enabled = isDbRunning && selectedDb != null,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(SurfaceCard)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FileDownload,
+                        contentDescription = "Export database",
+                        tint = AccentCyan,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                // Delete Database Button (red trash)
+                IconButton(
+                    onClick = { showDeleteConfirm = true },
+                    enabled = isDbRunning && selectedDb != null,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(SurfaceCard)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete database",
+                        tint = StatusRed,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
                 // Refresh Button
                 IconButton(
                     onClick = { refreshDbs() },
@@ -153,6 +215,37 @@ fun DatabaseScreen(
                     )
                 }
             }
+        }
+
+        // Delete confirmation dialog
+        if (showDeleteConfirm && selectedDb != null) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirm = false },
+                title = { Text("Delete Database?", fontWeight = FontWeight.Bold) },
+                text = { Text("Database '${selectedDb}' will be permanently deleted. This cannot be undone!") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showDeleteConfirm = false
+                            scope.launch {
+                                val (success, msg) = dbManager.dropDatabase(selectedDb!!)
+                                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                if (success) {
+                                    selectedDb = null
+                                    refreshDbs()
+                                }
+                            }
+                        }
+                    ) {
+                        Text("Delete", color = StatusRed, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirm = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
 
         if (!isDbRunning) {

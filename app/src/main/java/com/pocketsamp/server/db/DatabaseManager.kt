@@ -158,4 +158,65 @@ class DatabaseManager {
             Pair(false, e.message ?: "SQL Import failed")
         }
     }
+
+    suspend fun dropDatabase(database: String): Pair<Boolean, String> = withContext(Dispatchers.IO) {
+        try {
+            getConnection(null).use { conn ->
+                conn.createStatement().use { stmt ->
+                    stmt.execute("DROP DATABASE `${database.replace("`", "")}`")
+                }
+            }
+            Pair(true, "Database '$database' deleted")
+        } catch (e: Throwable) {
+            Pair(false, e.message ?: "Failed to delete database")
+        }
+    }
+
+    /** Generate a mysqldump-style SQL dump of the given database. */
+    suspend fun exportSql(database: String): Pair<Boolean, String> = withContext(Dispatchers.IO) {
+        try {
+            val safeDb = database.replace("`", "")
+            val sb = StringBuilder()
+            sb.appendLine("-- PocketSAMP database dump: $safeDb")
+            sb.appendLine()
+            getConnection(safeDb).use { conn ->
+                conn.createStatement().use { stmt ->
+                    // Table structures
+                    val tables = mutableListOf<String>()
+                    stmt.executeQuery("SHOW TABLES").use { rs ->
+                        while (rs.next()) tables.add(rs.getString(1))
+                    }
+                    for (table in tables) {
+                        sb.appendLine("-- Table: $table")
+                        stmt.executeQuery("SHOW CREATE TABLE `$table`").use { rs ->
+                            if (rs.next()) {
+                                sb.appendLine(rs.getString(2) + ";")
+                            }
+                        }
+                        sb.appendLine()
+                        // Table data
+                        val cols = mutableListOf<String>()
+                        stmt.executeQuery("SELECT * FROM `$table` LIMIT 0").use { rs ->
+                            val meta = rs.metaData
+                            for (i in 1..meta.columnCount) cols.add(meta.getColumnName(i))
+                        }
+                        stmt.executeQuery("SELECT * FROM `$table`").use { rs ->
+                            val meta = rs.metaData
+                            while (rs.next()) {
+                                val values = (1..meta.columnCount).map { i ->
+                                    val v = rs.getString(i)
+                                    if (v == null) "NULL" else "'" + v.replace("'", "''") + "'"
+                                }
+                                sb.appendLine("INSERT INTO `$table` (${cols.joinToString(", ") { "`$it`" }}) VALUES (${values.joinToString(", ")});")
+                            }
+                        }
+                        sb.appendLine()
+                    }
+                }
+            }
+            Pair(true, sb.toString())
+        } catch (e: Throwable) {
+            Pair(false, e.message ?: "Export failed")
+        }
+    }
 }
