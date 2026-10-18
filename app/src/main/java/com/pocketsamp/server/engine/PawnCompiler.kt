@@ -1,7 +1,7 @@
 package com.pocketsamp.server.engine
 
 import android.content.Context
-import android.os.Build
+import android.system.Os
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -31,11 +31,31 @@ class PawnCompiler(private val context: Context) {
             val bin = binaryFile()
             if (bin.exists() && bin.canExecute()) return@withContext bin
             bin.parentFile?.mkdirs()
+            // Re-extract if missing or not executable (fixes permission denied)
+            if (bin.exists()) bin.delete()
             context.assets.open(ASSET_NAME).use { input ->
                 bin.outputStream().use { output -> input.copyTo(output) }
             }
-            bin.setExecutable(true, false)
-            Log.i(TAG, "pawncc extracted to ${bin.absolutePath}")
+            // Os.chmod is more reliable than File.setExecutable on Android
+            try {
+                Os.chmod(bin.absolutePath, 448) // 0700
+            } catch (e: Exception) {
+                Log.w(TAG, "Os.chmod failed, trying setExecutable", e)
+                bin.setExecutable(true, true)
+            }
+            if (!bin.canExecute()) {
+                // Last resort: chmod via shell
+                try {
+                    Runtime.getRuntime().exec(arrayOf("chmod", "755", bin.absolutePath)).waitFor()
+                } catch (e: Exception) {
+                    Log.w(TAG, "shell chmod failed", e)
+                }
+            }
+            Log.i(TAG, "pawncc extracted to ${bin.absolutePath}, executable=${bin.canExecute()}")
+            if (!bin.canExecute()) {
+                Log.e(TAG, "pawncc is not executable after chmod attempts")
+                return@withContext null
+            }
             bin
         } catch (e: Exception) {
             Log.e(TAG, "Failed to extract pawncc", e)
