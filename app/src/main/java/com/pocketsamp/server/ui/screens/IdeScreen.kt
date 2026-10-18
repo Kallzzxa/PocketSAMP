@@ -44,7 +44,7 @@ private val TEXT_EXTENSIONS = setOf("pwn", "inc", "txt", "cfg", "ini", "json", "
 fun IdeScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val compiler = remember { PawnCompiler(context) }
+    val compiler = remember { PawnCompiler() }
 
     val externalRoot = Environment.getExternalStorageDirectory()
     var currentDir by remember { mutableStateOf(externalRoot) }
