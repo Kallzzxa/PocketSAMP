@@ -34,6 +34,11 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Setup Android NDK & CMake
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;27.0.12077973" "cmake;3.22.1"
+
       - name: Build Signed APK
         run: ./gradlew assembleDebug --build-cache --parallel --stacktrace
 
