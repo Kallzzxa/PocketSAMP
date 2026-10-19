@@ -13,7 +13,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Settings
@@ -29,7 +28,6 @@ import com.pocketsamp.server.service.ServerForegroundService
 import com.pocketsamp.server.service.ServerStatus
 import com.pocketsamp.server.ui.screens.ConfigScreen
 import com.pocketsamp.server.ui.screens.ConsoleScreen
-import com.pocketsamp.server.ui.screens.CrashLogsScreen
 import com.pocketsamp.server.ui.screens.DashboardScreen
 import com.pocketsamp.server.ui.screens.DatabaseScreen
 import com.pocketsamp.server.ui.screens.IdeScreen
@@ -40,7 +38,6 @@ enum class AppTab(val label: String, val icon: ImageVector) {
     CONSOLE("Console", Icons.Default.Terminal),
     DATABASE("Database", Icons.Default.Storage),
     IDE("IDE", Icons.Default.Code),
-    CRASHES("Crash Logs", Icons.Default.BugReport),
     CONFIG("Config", Icons.Default.Settings)
 }
 
@@ -141,7 +138,6 @@ class MainActivity : ComponentActivity() {
                         isDbRunning = isDbRunning
                     )
                     AppTab.IDE -> IdeScreen()
-                    AppTab.CRASHES -> CrashLogsScreen()
                     AppTab.CONFIG -> ConfigScreen()
                 }
             }
