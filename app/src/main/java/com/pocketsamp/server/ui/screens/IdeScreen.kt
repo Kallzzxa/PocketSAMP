@@ -236,6 +236,7 @@ fun IdeScreen() {
                     color = TextPrimary,
                     lineHeight = 18.sp
                 ),
+                visualTransformation = PawnHighlightTransformation(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = AccentCyan,
                     unfocusedBorderColor = SurfaceCardBorder,
