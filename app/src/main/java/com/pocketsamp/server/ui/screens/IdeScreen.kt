@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pocketsamp.server.engine.PawnCompiler
+import com.pocketsamp.server.config.ServerDirectoryManager
 import com.pocketsamp.server.ui.theme.*
 import kotlinx.coroutines.launch
 import java.io.File
@@ -47,7 +48,9 @@ fun IdeScreen() {
     val compiler = remember { PawnCompiler() }
 
     val externalRoot = Environment.getExternalStorageDirectory()
-    var currentDir by remember { mutableStateOf(externalRoot) }
+    // Default to the PocketSAMP server directory chosen on the Dashboard
+    val serverDir = remember { ServerDirectoryManager.getServerDirectory(context) }
+    var currentDir by remember { mutableStateOf(serverDir) }
     var files by remember { mutableStateOf<List<File>>(emptyList()) }
 
     var openFile by remember { mutableStateOf<File?>(null) }
@@ -102,10 +105,13 @@ fun IdeScreen() {
             isCompiling = true
             showOutput = true
             compileOutput = "Compiling ${f.name}..."
-            // include dir: gamemode folder itself (for #include <a_samp> style includes
-            // users should keep .inc files next to the .pwn or in an include/ subfolder)
-            val includeDir = File(f.parentFile, "include")
-            val includes = if (includeDir.exists()) listOf(includeDir) else emptyList()
+            // Include dirs: file's own folder, ./include subfolder,
+            // and <server_dir>/pawno/include (SA-MP convention)
+            val includes = mutableListOf<File>()
+            val localInclude = File(f.parentFile, "include")
+            if (localInclude.isDirectory) includes.add(localInclude)
+            val pawnoInclude = File(serverDir, "pawno/include")
+            if (pawnoInclude.isDirectory) includes.add(pawnoInclude)
             val result = compiler.compile(f, includes)
             compileOutput = result.output
             isCompiling = false
@@ -314,7 +320,7 @@ fun IdeScreen() {
             ) {
                 Icon(Icons.Default.FolderOpen, null, tint = AccentCyan, modifier = Modifier.size(18.dp))
                 Text(
-                    "Open your gamemode folder, tap a .pwn file to edit, then hit the build button to compile it to .amx",
+                    "Browsing server folder. Tap a .pwn to edit, hit build to compile — includes are read from pawno/include",
                     color = TextSecondary,
                     fontSize = 11.sp
                 )
