@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Folder
@@ -53,6 +54,13 @@ fun IdeScreen() {
     var currentDir by remember { mutableStateOf(serverDir) }
     var files by remember { mutableStateOf<List<File>>(emptyList()) }
 
+    // Custom include folder (persisted) — user picks their pawno/include folder
+    val prefs = remember { context.getSharedPreferences("pocketsamp_ide", android.content.Context.MODE_PRIVATE) }
+    var customIncludeDir by remember {
+        mutableStateOf(prefs.getString("include_dir", null)?.let { File(it) }?.takeIf { it.isDirectory })
+    }
+    var pickIncludeMode by remember { mutableStateOf(false) }
+
     var openFile by remember { mutableStateOf<File?>(null) }
     var editorText by remember { mutableStateOf("") }
     var isDirty by remember { mutableStateOf(false) }
@@ -60,6 +68,11 @@ fun IdeScreen() {
     var compileOutput by remember { mutableStateOf<String?>(null) }
     var isCompiling by remember { mutableStateOf(false) }
     var showOutput by remember { mutableStateOf(false) }
+
+    fun setCustomIncludeDir(dir: File?) {
+        customIncludeDir = dir
+        prefs.edit().putString("include_dir", dir?.absolutePath).apply()
+    }
 
     fun refreshFiles() {
         val list = currentDir.listFiles()?.toList().orEmpty()
@@ -105,9 +118,10 @@ fun IdeScreen() {
             isCompiling = true
             showOutput = true
             compileOutput = "Compiling ${f.name}..."
-            // Include dirs: file's own folder, ./include subfolder,
-            // and <server_dir>/pawno/include (SA-MP convention)
+            // Include dirs: custom picked folder, file's own folder,
+            // ./include subfolder, and <server_dir>/pawno/include (SA-MP convention)
             val includes = mutableListOf<File>()
+            customIncludeDir?.takeIf { it.isDirectory }?.let { includes.add(it) }
             val localInclude = File(f.parentFile, "include")
             if (localInclude.isDirectory) includes.add(localInclude)
             val pawnoInclude = File(serverDir, "pawno/include")
@@ -251,6 +265,67 @@ fun IdeScreen() {
                 }
             }
         } else {
+            // Include folder setting bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(SurfaceCard)
+                    .padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.FolderOpen,
+                    null,
+                    tint = if (pickIncludeMode) StatusGreen else AccentCyan,
+                    modifier = Modifier.size(18.dp)
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        if (pickIncludeMode) "Tap a folder, then hit ✓"
+                        else "Include: ${customIncludeDir?.absolutePath ?: "auto (pawno/include)"}",
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        maxLines = 1
+                    )
+                }
+                if (pickIncludeMode) {
+                    // Confirm: use current folder as include dir
+                    IconButton(
+                        onClick = {
+                            setCustomIncludeDir(currentDir)
+                            pickIncludeMode = false
+                            Toast.makeText(context, "Include folder set", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(SurfaceCardBorder)
+                    ) {
+                        Icon(Icons.Default.Check, "Use this folder", tint = StatusGreen, modifier = Modifier.size(16.dp))
+                    }
+                    IconButton(
+                        onClick = { pickIncludeMode = false },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(Icons.Default.Close, "Cancel", tint = TextMuted, modifier = Modifier.size(16.dp))
+                    }
+                } else {
+                    TextButton(onClick = { pickIncludeMode = true }) {
+                        Text("PICK", color = AccentCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    if (customIncludeDir != null) {
+                        IconButton(
+                            onClick = { setCustomIncludeDir(null) },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.Close, "Clear", tint = TextMuted, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
+
             // File browser
             if (files.isEmpty()) {
                 Box(
